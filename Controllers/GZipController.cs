@@ -37,7 +37,7 @@ namespace GZipTest.Controllers
                 }
                 else
                 {
-                    using (GZipStream decompressionStream = new GZipStream(inputBytes.AsStream(), workmode))
+                    using (GZipStream decompressionStream = new GZipStream(inputBytes.AsStream(), workmode, true))
                     {
                         decompressionStream.CopyTo(memStr);
                     }

@@ -7,7 +7,7 @@ namespace GZipTest.Controllers
 {
     class UncompressedFileReader : IDataReader
     {
-        private static readonly int chunkLength = 1000000;
+        private static readonly int chunkLength = 1024*1024*10;
         public async IAsyncEnumerable<DataChunk> Read(string uncompressedFilename)
         {
             long fileLength = new FileInfo(uncompressedFilename).Length;
