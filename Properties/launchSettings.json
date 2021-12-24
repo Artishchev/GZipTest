@@ -2,7 +2,7 @@
   "profiles": {
     "GZipTest": {
       "commandName": "Project",
-      "commandLineArgs": "compress input.pdf output.gz"
+      "commandLineArgs": "compress input.txt output.gz"
     }
   }
 }

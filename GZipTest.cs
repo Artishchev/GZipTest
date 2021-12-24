@@ -1,7 +1,9 @@
 ﻿using GZipTest.Controllers;
+using GZipTest.Models;
 using Microsoft.Toolkit.HighPerformance.Buffers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,61 +15,72 @@ namespace GZipTest
     sealed class GZipTest
     {
         static ICompressionController compressionController = new GZipController();
+        static IDataReader dataReader;
 
         public async Task<bool> PerformAction(string inputFile, string outputFile, bool compress)
         {
-            int chunkLength = 100000000;
-            ExecutionDataflowBlockOptions execOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 /*Environment.ProcessorCount*/, BoundedCapacity = Environment.ProcessorCount };
+            int chunkLength = 1000000;
+            ExecutionDataflowBlockOptions execOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount };
 
-            var transform = new TransformBlock<(MemoryOwner<byte>, int), (MemoryOwner<byte>, int)>(((MemoryOwner<byte>, int) input) => {
+            var transform = new TransformBlock<DataChunk, DataChunk>((DataChunk chunk) => {
                 MemoryOwner<byte> buffer;
                 if (compress)
                 {
-                    buffer = compressionController.Compress(input.Item1);
+                    buffer = compressionController.Compress(chunk.uncompressedData);
+                    chunk.uncompressedData.Dispose();
+                    chunk.compressedData = buffer;
                 }
                 else
                 {
-                    buffer = compressionController.Decompress(input.Item1);
+                    buffer = compressionController.Decompress(chunk.compressedData);
+                    chunk.compressedData.Dispose();
+                    chunk.uncompressedData = buffer;
                 }
 
-                input.Item1.Dispose();
-                Console.WriteLine($"Transform {input.Item2} Length:{input.Item1.Length}");
+                Console.WriteLine($"Transform {chunk.orderNum} Length:{buffer.Length}");
 
-                return (buffer, input.Item2);
+                return chunk;
             }, execOptions);
 
-            var write = new ActionBlock<(MemoryOwner<byte>, int)>(((MemoryOwner<byte>, int) input) => {
+            var write = new ActionBlock<DataChunk>((DataChunk chunk) => {
+                long outputLength = 0;
                 using Stream stream = File.Open(outputFile, FileMode.Append);
                 {
-                    stream.Write(input.Item1.Span);
-                    input.Item1.Dispose();
+                    MemoryOwner<byte> memoryOwner = compress ? chunk.compressedData : chunk.uncompressedData;
+                    stream.Write(memoryOwner.Span);
+                    outputLength = memoryOwner.Length;
+                    memoryOwner.Dispose();
                 }
-                Console.WriteLine($"Action {input.Item2} Length:{input.Item1.Length}");
+                Console.WriteLine($"Action {chunk.orderNum} Length:{outputLength}");
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
 
             DataflowLinkOptions linkOption = new DataflowLinkOptions() { PropagateCompletion = true };
             transform.LinkTo(write, linkOption);
 
-            long fileLength = new FileInfo(inputFile).Length;
-            MemoryOwner<byte> buffer;
-            using (Stream stream = File.OpenRead(inputFile))
-            {
-                for (int i = 0; i < fileLength / chunkLength; i++)
-                {
-                    buffer = MemoryOwner<byte>.Allocate(chunkLength);
-                    stream.Read(buffer.Span);
-                    await transform.SendAsync((buffer, i));
-                    Console.WriteLine($"Send {i}");
-                }
-                if (stream.Length - stream.Position > 0)
-                {
-                    int i = -1;
-                    buffer = MemoryOwner<byte>.Allocate((int)(stream.Length - stream.Position));
-                    stream.Read(buffer.Span);
-                    await transform.SendAsync((buffer, i));
-                    Console.WriteLine($"Send {i}");
-                }
-            }
+            dataReader = compress ? new UncompressedFileReader() : new CompressedFileReader();
+            await foreach (DataChunk dataChunk in dataReader.Read(inputFile))
+                await transform.SendAsync(dataChunk);
+
+            //long fileLength = new FileInfo(inputFile).Length;
+            //MemoryOwner<byte> buffer;
+            //using (Stream stream = File.OpenRead(inputFile))
+            //{
+            //    for (int i = 0; i < fileLength / chunkLength; i++)
+            //    {
+            //        buffer = MemoryOwner<byte>.Allocate(chunkLength);
+            //        stream.Read(buffer.Span);
+            //        await transform.SendAsync((buffer, i));
+            //        Console.WriteLine($"Send {i}");
+            //    }
+            //    if (stream.Length - stream.Position > 0)
+            //    {
+            //        int i = -1;
+            //        buffer = MemoryOwner<byte>.Allocate((int)(stream.Length - stream.Position));
+            //        stream.Read(buffer.Span);
+            //        await transform.SendAsync((buffer, i));
+            //        Console.WriteLine($"Send {i}");
+            //    }
+            //}
 
             transform.Complete();
 
