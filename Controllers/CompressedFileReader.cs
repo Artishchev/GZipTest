@@ -35,7 +35,8 @@ namespace GZipTest.Controllers
         public async IAsyncEnumerable<DataChunk> Read(string compressedFilename)
         {
             long bytesEqualToHeader = 0;
-            int chunksCount = 0;
+            int chunksCnt = 0;
+            int overallChunksCount = 1;
             bool skipFirstHeader = false;
             List<MemoryOwner<byte>> buffersList = new List<MemoryOwner<byte>>();
             using (FileStream stream = File.OpenRead(compressedFilename))
@@ -76,7 +77,8 @@ namespace GZipTest.Controllers
                                 bytesEqualToHeader = 0;
                                 buffersList.Add(readBuffer);
                                 var concatResult = ConcatBuffers(buffersList, i + 1);
-                                yield return new DataChunk() { compressedData = concatResult.Item1, orderNum = chunksCount++ };
+                                overallChunksCount = overallChunksCount > 1 ? overallChunksCount : (int)Math.Ceiling((double)stream.Length / concatResult.Item1.Length);
+                                yield return new DataChunk() { compressedData = concatResult.Item1, orderNum = chunksCnt++, chunksCount = overallChunksCount };
                                 readBuffer = concatResult.Item2;
                                 i = gZipCurrentHeader.Length;
 
@@ -105,7 +107,7 @@ namespace GZipTest.Controllers
                 if (buffersList.Count > 0)
                 {
                     var concatResult = ConcatBuffers(buffersList, buffersList[buffersList.Count - 1].Length - 1);
-                    yield return new DataChunk() { compressedData = concatResult.Item1, orderNum = chunksCount++ };
+                    yield return new DataChunk() { compressedData = concatResult.Item1, orderNum = chunksCnt++, chunksCount = overallChunksCount };
                 }
             }
         }

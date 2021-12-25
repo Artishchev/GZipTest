@@ -101,6 +101,11 @@ namespace GZipTest
                 Console.WriteLine($"Unhandled exception. Please send a content of this screen to the developer: artishev.ds@gmail.com");
                 Console.WriteLine(ex);
             }
+
+            if (exitCode == 0)
+            {
+                Console.WriteLine("Operation completed successfully.");
+            }
             return exitCode;
         }
 

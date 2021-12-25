@@ -24,6 +24,11 @@ namespace GZipTest.Models
         public int orderNum { get; set; }
 
         /// <summary>
+        /// Overall chunks count
+        /// </summary>
+        public int chunksCount { get; set; }
+
+        /// <summary>
         /// Disposes memory pool objects
         /// </summary>
         public void Dispose()

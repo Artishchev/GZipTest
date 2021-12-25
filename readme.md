@@ -29,7 +29,7 @@ Note: the format of the archive is left to the discretion of the author, and doe
 
 :white_check_mark: Graceful cancelation 
 
-:white_large_square: Progress bar
+:white_check_mark: Progress bar
 
 :white_large_square: Asynchronous GZip chunks determination
 
