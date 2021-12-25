@@ -19,7 +19,6 @@ namespace GZipTest
 
         public async Task<bool> PerformAction(string inputFile, string outputFile, bool compress)
         {
-            int chunkLength = 1000000;
             ExecutionDataflowBlockOptions execOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount };
 
             var transform = new TransformBlock<DataChunk, DataChunk>((DataChunk chunk) => {
@@ -60,27 +59,6 @@ namespace GZipTest
             dataReader = compress ? new UncompressedFileReader() : new CompressedFileReader();
             await foreach (DataChunk dataChunk in dataReader.Read(inputFile))
                 await transform.SendAsync(dataChunk);
-
-            //long fileLength = new FileInfo(inputFile).Length;
-            //MemoryOwner<byte> buffer;
-            //using (Stream stream = File.OpenRead(inputFile))
-            //{
-            //    for (int i = 0; i < fileLength / chunkLength; i++)
-            //    {
-            //        buffer = MemoryOwner<byte>.Allocate(chunkLength);
-            //        stream.Read(buffer.Span);
-            //        await transform.SendAsync((buffer, i));
-            //        Console.WriteLine($"Send {i}");
-            //    }
-            //    if (stream.Length - stream.Position > 0)
-            //    {
-            //        int i = -1;
-            //        buffer = MemoryOwner<byte>.Allocate((int)(stream.Length - stream.Position));
-            //        stream.Read(buffer.Span);
-            //        await transform.SendAsync((buffer, i));
-            //        Console.WriteLine($"Send {i}");
-            //    }
-            //}
 
             transform.Complete();
 

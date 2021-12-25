@@ -48,7 +48,6 @@ namespace GZipTest.Controllers
                             i = gZipCurrentHeader.Length - 1;
                         }
 
-
                         if (readBuffer.Span[i] == gZipCurrentHeader[bytesEqualToHeader])
                         {
                             bytesEqualToHeader++;
