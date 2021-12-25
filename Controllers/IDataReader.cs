@@ -1,15 +1,18 @@
 ﻿using GZipTest.Models;
-using Microsoft.Toolkit.HighPerformance.Buffers;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GZipTest.Controllers
 {
+    /// <summary>
+    /// Interface describes data reading operation from original file
+    /// </summary>
     interface IDataReader
     {
+        /// <summary>
+        /// Reading from original file
+        /// </summary>
+        /// <param name="uncompressedFilename">Original filename</param>
+        /// <returns>Async enumerable of data chunks</returns>
         IAsyncEnumerable<DataChunk> Read(string uncompressedFilename);
     }
 }

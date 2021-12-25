@@ -7,12 +7,31 @@ using System.IO;
 
 namespace GZipTest.Controllers
 {
+    /// <summary>
+    /// Perform reading operation from compressed source file
+    /// </summary>
     class CompressedFileReader : IDataReader
     {
+        /// <summary>
+        /// Magic numbers from a beginning of a GZip header
+        /// </summary>
         private static readonly byte[] gZipHeaderMagicNumbers = new byte[2] { 0x1f, 0x8b };
+
+        /// <summary>
+        /// Default reading buffer size
+        /// </summary>
         private static int readBufferSize = 1024 * 1024 * 1;
+
+        /// <summary>
+        /// GZip header specific for current file
+        /// </summary>
         private static byte[] gZipCurrentHeader;
 
+        /// <summary>
+        /// Perform reading operation from compressed file. Reading data with help of memory buffer and automatically determinants a GZip chunks
+        /// </summary>
+        /// <param name="compressedFilename">Filename of original compressed file</param>
+        /// <returns>GZip formatted data chunk</returns>
         public async IAsyncEnumerable<DataChunk> Read(string compressedFilename)
         {
             long bytesEqualToHeader = 0;
@@ -91,6 +110,12 @@ namespace GZipTest.Controllers
             }
         }
 
+        /// <summary>
+        /// Concatenate buffers to create complete GZip formatted data chunk
+        /// </summary>
+        /// <param name="buffersList">Intermediate read buffers</param>
+        /// <param name="positionInLastBuffer">Pointer to the position in the last buffer where the next header was found</param>
+        /// <returns>First item - resulting GZip data chunk. Second item - last buffer to be processed further</returns>
         private (MemoryOwner<byte>, MemoryOwner<byte>) ConcatBuffers(List<MemoryOwner<byte>> buffersList, int positionInLastBuffer)
         {
             // Calculating summary buffer length

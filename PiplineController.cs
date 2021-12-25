@@ -2,21 +2,28 @@
 using GZipTest.Models;
 using Microsoft.Toolkit.HighPerformance.Buffers;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace GZipTest
 {
-    sealed class GZipTest
+    /// <summary>
+    /// Controller for DataFlow Pipelines
+    /// Initializes the processing pipeline
+    /// </summary>
+    sealed class PiplineController
     {
         static ICompressionController compressionController = new GZipController();
         static IDataReader dataReader;
 
+        /// <summary>
+        /// Perform compression and decompression pipelines
+        /// </summary>
+        /// <param name="inputFile">Original filename. File to be compressed or decompressed depending on <paramref name="compress"/> flag</param>
+        /// <param name="outputFile">Destination filename</param>
+        /// <param name="compress">The flag defines the operation to be performed (compression if true / decompression if false)</param>
+        /// <returns>True on sucess. False on errors</returns>
         public async Task<bool> PerformAction(string inputFile, string outputFile, bool compress)
         {
             ExecutionDataflowBlockOptions execOptions = new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount };

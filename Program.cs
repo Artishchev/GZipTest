@@ -4,9 +4,15 @@ using System.Threading.Tasks;
 
 namespace GZipTest
 {
+    /// <summary>
+    /// Test application for compressing and decompressing files block-by-block using System.IO.Compression.GzipStream
+    /// </summary>
     class Program
     {
-        static GZipTest gZipTest = new GZipTest();
+        /// <summary>
+        /// Instance of main pipeline controller
+        /// </summary>
+        static PiplineController piplineController = new PiplineController();
 
         static async Task Main(string[] args)
         {
@@ -45,7 +51,7 @@ namespace GZipTest
                 }
             }
 
-            await gZipTest.PerformAction(inputFile, outputFile, compress);
+            await piplineController.PerformAction(inputFile, outputFile, compress);
         }
 
         static string helpInfo =

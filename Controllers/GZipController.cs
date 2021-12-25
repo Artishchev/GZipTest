@@ -1,27 +1,41 @@
 ﻿using Microsoft.Toolkit.HighPerformance;
 using Microsoft.Toolkit.HighPerformance.Buffers;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GZipTest.Controllers
 {
+    /// <summary>
+    /// Compression and decompression operations in GZip format
+    /// </summary>
     class GZipController : ICompressionController
     {
+        /// <summary>
+        /// Compress data to GZip format
+        /// </summary>
+        /// <param name="uncompressedBytes">Input buffer to be compressed. Should be disposed after usage</param>
+        /// <returns>Compressed data in buffer. Should be disposed after usage</returns>
         public MemoryOwner<byte> Compress(MemoryOwner<byte> uncompressedBytes)
         {
             return CompressDecompress(uncompressedBytes, true);
         }
 
+        /// <summary>
+        /// Decompress data from GZip format
+        /// </summary>
+        /// <param name="compressedBytes">Input buffer to be decompressed. Should be disposed after usage</param>
+        /// <returns>Decompressed data in buffer. Should be disposed after usage</returns>
         public MemoryOwner<byte> Decompress(MemoryOwner<byte> compressedBytes)
         {
             return CompressDecompress(compressedBytes, false);
         }
 
+        /// <summary>
+        /// Perform compression and decompression using GZip format
+        /// </summary>
+        /// <param name="inputBytes">Input buffer to be processed</param>
+        /// <param name="compress">Compression if true and decompression if false</param>
+        /// <returns>Input buffer after processing</returns>
         private MemoryOwner<byte> CompressDecompress(MemoryOwner<byte> inputBytes, bool compress)
         {
             MemoryOwner<byte> buffer;
