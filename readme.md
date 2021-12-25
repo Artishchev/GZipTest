@@ -15,12 +15,22 @@ Note: the format of the archive is left to the discretion of the author, and doe
  - **MemoryPool** - usage of MemoryOwner ([Microsoft.Toolkit.HighPerformance.Buffers](https://docs.microsoft.com/en-us/windows/communitytoolkit/high-performance/memoryowner)) prevent GC performance problem and large objects allocation.
  - **DataFlow** - helps make code more readable and make it easier to manage threads
 #### ToDo
- - [x] Asynchronous compression
- - [x] Asynchronous decompression
- - [x] Backward compatibility with original GZip file format
- - [ ] Graceful cancelation 
- - [ ] Exception Handling
- - [ ] Asynchronous GZip chunks determination
- - [ ] Clear messages to the user
+:white_check_mark: Asynchronous compression
+ 
+:white_check_mark: Asynchronous decompression
+
+:white_check_mark: Backward compatibility with original GZip file format
+
+:white_check_mark: Comments and description
+
+:white_large_square: Graceful cancelation 
+
+:white_large_square: Exception Handling
+
+:white_large_square: Asynchronous GZip chunks determination
+
+:white_large_square: Clear messages to the user
+
+:white_large_square: Unit tests
 
 [Other implementations](https://github.com/search?o=desc&q=GZipTest&s=updated&type=Repositories&utf8=%E2%9C%93)
