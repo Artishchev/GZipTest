@@ -1,4 +1,5 @@
-﻿using GZipTest.Models;
+﻿using GZipTest.Controllers;
+using GZipTest.Models;
 using System;
 using System.IO;
 using System.Threading;

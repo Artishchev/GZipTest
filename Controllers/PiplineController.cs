@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace GZipTest
+namespace GZipTest.Controllers
 {
     /// <summary>
     /// Controller for DataFlow Pipelines

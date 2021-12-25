@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="PiplineController.cs" />
+    <None Include="Controllers\PiplineController.cs" />
   </ItemGroup>
 
   <ItemGroup>
