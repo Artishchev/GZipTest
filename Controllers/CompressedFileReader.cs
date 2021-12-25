@@ -53,7 +53,7 @@ namespace GZipTest.Controllers
                         }
                         else
                         {
-                            throw new FormatException("Unsupported file format");
+                            throw new DetailedMessageException("Input file is not a GZip formatted archive.", new FormatException("Unsupported file format"));
                         }
                     }
 

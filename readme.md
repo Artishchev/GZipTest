@@ -23,13 +23,15 @@ Note: the format of the archive is left to the discretion of the author, and doe
 
 :white_check_mark: Comments and description
 
-:white_large_square: Graceful cancelation 
+:white_check_mark: Clear messages to the user
 
-:white_large_square: Exception Handling
+:white_check_mark: Exception Handling
+
+:white_check_mark: Graceful cancelation 
+
+:white_large_square: Progress bar
 
 :white_large_square: Asynchronous GZip chunks determination
-
-:white_large_square: Clear messages to the user
 
 :white_large_square: Unit tests
 
