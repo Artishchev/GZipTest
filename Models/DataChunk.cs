@@ -28,6 +28,12 @@ namespace GZipTest.Models
         /// </summary>
         public int chunksCount { get; set; }
 
+        public int offset { get; set; }
+
+        public int length { get; set; }
+
+        public string chunkFileName { get; set; }
+
         /// <summary>
         /// Disposes memory pool objects
         /// </summary>

@@ -14,7 +14,7 @@ namespace GZipTest.Controllers
         /// <summary>
         /// Default chunk length to pass as async enumerable
         /// </summary>
-        private static readonly int chunkLength = 1024*1024*10;
+        private static readonly int chunkLength = 1024*1024*100;
 
         /// <summary>
         /// Reading operation from decompressed source file
@@ -33,13 +33,13 @@ namespace GZipTest.Controllers
                 {
                     buffer = MemoryOwner<byte>.Allocate(chunkLength);
                     await stream.ReadAsync(buffer.Memory);
-                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount };
+                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt*chunkLength, length = buffer.Length };
                 }
                 if (stream.Length - stream.Position > 0)
                 {
                     buffer = MemoryOwner<byte>.Allocate((int)(stream.Length - stream.Position));
                     await stream.ReadAsync(buffer.Memory);
-                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount };
+                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt * chunkLength, length = buffer.Length };
                 }
             }
         }

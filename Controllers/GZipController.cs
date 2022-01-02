@@ -1,7 +1,10 @@
-﻿using Microsoft.Toolkit.HighPerformance;
+﻿using GZipTest.Models;
+using GZipTest.Tools;
+using Microsoft.Toolkit.HighPerformance;
 using Microsoft.Toolkit.HighPerformance.Buffers;
 using System.IO;
 using System.IO.Compression;
+using System.Threading.Tasks;
 
 namespace GZipTest.Controllers
 {
@@ -61,6 +64,18 @@ namespace GZipTest.Controllers
                 memStr.Read(buffer.Span);
             }
             return buffer;
+        }
+
+        public async Task DecompressToFileAsync(string inputFile, string OutputFile, DataChunk dataChunk)
+        {
+            string filename = OutputFile + dataChunk.orderNum;
+            using (FileChunkStream fileChunk = new FileChunkStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read, dataChunk.length, dataChunk.offset))
+            using (FileStream writeStream = File.OpenWrite(filename))
+            using (GZipStream decompressionStream = new GZipStream(fileChunk, CompressionMode.Decompress, true))
+            {
+                await decompressionStream.CopyToAsync(writeStream);
+            }
+            dataChunk.chunkFileName = filename;
         }
     }
 }

@@ -2,6 +2,8 @@
 using GZipTest.Models;
 using Microsoft.Toolkit.HighPerformance.Buffers;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +29,96 @@ namespace GZipTest.Controllers
         /// <param name="cancellationToken">In case of errors or termination by user</param>
         /// <returns>True on sucess. False on errors</returns>
         public async Task<bool> PerformAction(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (compress)
+                return await CompressPipeline(inputFile, outputFile, compress, cancellationToken);
+            else
+                return await DecompressPipeline(inputFile, outputFile, compress, cancellationToken);
+        }
+
+        private async Task<bool> DecompressPipeline(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            ConcurrentBag<long> headers = new ConcurrentBag<long>();
+            ConcurrentBag<long> possibleHeaders = new ConcurrentBag<long>();
+
+            var findHeaders = new ActionBlock<DataChunk>((DataChunk chunk) => {
+                var result = CompressedFileReader.FindChunks(chunk);
+                if (result.Item1.Length > 0)
+                {
+                    foreach (var headerPos in result.Item1)
+                    {
+                        headers.Add(headerPos);
+                    }
+                }
+                else if (result.Item2 >= 0)
+                {
+                    possibleHeaders.Add(result.Item2);
+                }
+            }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
+
+            dataReader = new UncompressedFileReader();
+
+            try
+            {
+                await CompressedFileReader.CheckFileFormatAsync(inputFile, cancellationToken);
+
+                await foreach (DataChunk dataChunk in dataReader.Read(inputFile).WithCancellation(cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var result = await findHeaders.SendAsync(dataChunk);
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new DetailedMessageException("Error reading input file. The program does not have the required permission or file is in use.", ex);
+            }
+
+            findHeaders.Complete();
+
+            await findHeaders.Completion;
+
+            long[] h = headers.ToArray();
+            List<DataChunk> dataChunks = new List<DataChunk>();
+            Array.Sort(h);
+            GZipController gzc = new GZipController();
+            for (int i = 0; i < h.Length; i++)
+            {
+                int offset, length;
+                if (i == h.Length - 1)
+                {
+                    long fileLength = new FileInfo(inputFile).Length;
+                    offset = (int)h[i];
+                    length = (int)(fileLength - h[i]);
+                }
+                else
+                {
+                    offset = (int)h[i];
+                    length = (int)(h[i + 1] - h[i]);
+                }
+                dataChunks.Add(new DataChunk() { chunksCount = h.Length, orderNum = i, offset = offset, length = length });
+            }
+
+            foreach (var chnk in dataChunks)
+            {
+                await gzc.DecompressToFileAsync(inputFile, outputFile, chnk);
+            }
+
+            using (FileStream output = File.Open(outputFile, FileMode.Append))
+            {
+                foreach (var chnk in dataChunks)
+                {
+                    using(FileStream input = File.OpenRead(chnk.chunkFileName))
+                    {
+                        input.CopyTo(output);
+                    }
+                }
+
+            }
+
+            return false;
+        }
+
+        private async Task<bool> CompressPipeline(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken))
         {
             var transform = new TransformBlock<DataChunk, DataChunk>((DataChunk chunk) => {
                 return CompressOrDecompress(chunk, compress);
@@ -54,13 +146,13 @@ namespace GZipTest.Controllers
                     cancellationToken.ThrowIfCancellationRequested();
                     await transform.SendAsync(dataChunk);
                 }
-                    
+
             }
             catch (UnauthorizedAccessException ex)
             {
                 throw new DetailedMessageException("Error reading input file. The program does not have the required permission or file is in use.", ex);
             }
-            
+
             transform.Complete();
 
             await progressBar.Completion;
