@@ -199,41 +199,12 @@ namespace GZipTest.Controllers
             int currentPosition = 0;
             Span<byte> data = chunk.uncompressedData.Span;
 
-            //Finds headers in data sample. Returns possible header index if it in the end of sample
-            long FindHeader(Span<byte> data)
-            {
-                long possibleHeader = -1;
-                int chkStart = currentPosition - gZipCurrentHeader.Length;
-                if (chkStart < 0)
-                    chkStart = 0;
-                int chkEnd = chkStart + gZipCurrentHeader.Length;
-                if (chkEnd > data.Length - 1)
-                    chkEnd = data.Length - 1;
-                int bytesEqualToHeader = 0;
-                for (int chkCurrent = chkStart; (chkCurrent < chkEnd || bytesEqualToHeader > 0) && chkCurrent < data.Length - 1; chkCurrent++)
-                {
-                    if (data[chkCurrent] == gZipCurrentHeader[bytesEqualToHeader])
-                        bytesEqualToHeader++;
-                    else
-                        bytesEqualToHeader = 0;
-                    if (bytesEqualToHeader >= gZipCurrentHeader.Length)
-                    {
-                        chunkHeaderPositions.Add(chunk.offset + chkCurrent - gZipCurrentHeader.Length + 1);
-                        bytesEqualToHeader = 0;
-                    }
-                    if (chkCurrent == data.Length - 1 && bytesEqualToHeader > 0)
-                        possibleHeader = chkCurrent - bytesEqualToHeader;
-                }
-                
-                return possibleHeader;
-            }
-
             while (currentPosition < data.Length)
             {
                 if (byteFlags.Contains(data[currentPosition]))
                 {
                     // check for header
-                    FindHeader(data);
+                    FindHeader(data, currentPosition, chunk.offset, chunkHeaderPositions);
                 }
                 currentPosition += gZipCurrentHeader.Length;
             }
@@ -244,12 +215,62 @@ namespace GZipTest.Controllers
             if (byteFlags.Contains(data[currentPosition]))
             {
                 // check for header
-                long possibleHeader = FindHeader(data);
+                long possibleHeader = FindHeader(data, currentPosition, chunk.offset, chunkHeaderPositions);
                 if (possibleHeader >= 0)
                     possibleChunkheaderPositions = possibleHeader + chunk.offset;
             }
 
             return (chunkHeaderPositions.ToArray(), possibleChunkheaderPositions);
+        }
+
+        public static async Task<long[]> CheckPossibleHeaders(string compressedFilename, long[] possibleHeaders, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            List<long> chunkHeaderPositions = new List<long>();
+            Array.Sort(possibleHeaders);
+            using (Stream stream = File.OpenRead(compressedFilename))
+            {
+                foreach (long headerOffset in possibleHeaders)
+                {
+                    if (headerOffset < stream.Length - gZipCurrentHeader.Length)
+                    {
+                        byte[] buffer = new byte[gZipCurrentHeader.Length + 1];
+                        int readBytes = await stream.ReadAsync(buffer, cancellationToken);
+                        if (readBytes > gZipCurrentHeader.Length)
+                        {
+                            FindHeader(buffer, 0, headerOffset, chunkHeaderPositions);
+                        }
+                    }
+                }
+            }
+            return chunkHeaderPositions.ToArray();
+        }
+
+        private static long FindHeader(Span<byte> data, int currentPosition, long chunkOffset, List<long> chunkHeaderPositions)
+        {
+            long possibleHeader = -1;
+            int chkStart = currentPosition - gZipCurrentHeader.Length;
+            if (chkStart < 0)
+                chkStart = 0;
+            int chkEnd = chkStart + gZipCurrentHeader.Length;
+            if (chkEnd > data.Length - 1)
+                chkEnd = data.Length - 1;
+            int bytesEqualToHeader = 0;
+            for (int chkCurrent = chkStart; (chkCurrent < chkEnd || bytesEqualToHeader > 0) && chkCurrent < data.Length - 1; chkCurrent++)
+            {
+                if (data[chkCurrent] == gZipCurrentHeader[bytesEqualToHeader])
+                    bytesEqualToHeader++;
+                else
+                    bytesEqualToHeader = 0;
+                if (bytesEqualToHeader >= gZipCurrentHeader.Length)
+                {
+                    chunkHeaderPositions.Add(chunkOffset + chkCurrent - gZipCurrentHeader.Length + 1);
+                    bytesEqualToHeader = 0;
+                }
+                if (chkCurrent == data.Length - 1 && bytesEqualToHeader > 0)
+                    possibleHeader = chkCurrent - bytesEqualToHeader;
+            }
+
+            return possibleHeader;
         }
     }
 }
