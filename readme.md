@@ -31,7 +31,7 @@ On success the program should return 0. On error return 1.
 
 :white_check_mark: Progress bar
 
-:white_large_square: Asynchronous GZip chunks determination
+:white_check_mark: Asynchronous GZip chunks determination
 
 :white_large_square: Unit tests
 
