@@ -54,7 +54,7 @@ namespace GZipTest.Controllers
                     }
                     resultHeaders = result.Item1;
                 }
-                else if (result.Item2 >= 0)
+                if (result.Item2 >= 0)
                 {
                     possibleHeaders.Add(result.Item2);
                     resultPossibleHeader = result.Item2;
@@ -111,6 +111,7 @@ namespace GZipTest.Controllers
                         {
                             await input.CopyToAsync(output);
                         }
+                        File.Delete(chnk.chunkFileName);
                     }
                 }
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, BoundedCapacity = 1, CancellationToken = cancellationToken });

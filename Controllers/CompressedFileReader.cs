@@ -23,7 +23,7 @@ namespace GZipTest.Controllers
         /// <summary>
         /// Default reading buffer size
         /// </summary>
-        private static int readBufferSize = 1024 * 1024 * 10;
+        private static int readBufferSize = 1024 * 1024 * 100;
 
         /// <summary>
         /// GZip header specific for current file
@@ -233,6 +233,7 @@ namespace GZipTest.Controllers
                 {
                     if (headerOffset < stream.Length - gZipCurrentHeader.Length)
                     {
+                        stream.Seek(headerOffset, SeekOrigin.Begin);
                         byte[] buffer = new byte[gZipCurrentHeader.Length + 1];
                         int readBytes = await stream.ReadAsync(buffer, cancellationToken);
                         if (readBytes > gZipCurrentHeader.Length)
@@ -255,7 +256,7 @@ namespace GZipTest.Controllers
             if (chkEnd > data.Length - 1)
                 chkEnd = data.Length - 1;
             int bytesEqualToHeader = 0;
-            for (int chkCurrent = chkStart; (chkCurrent < chkEnd || bytesEqualToHeader > 0) && chkCurrent < data.Length - 1; chkCurrent++)
+            for (int chkCurrent = chkStart; (chkCurrent <= chkEnd || bytesEqualToHeader > 0) && chkCurrent < data.Length; chkCurrent++)
             {
                 if (data[chkCurrent] == gZipCurrentHeader[bytesEqualToHeader])
                     bytesEqualToHeader++;
@@ -267,7 +268,7 @@ namespace GZipTest.Controllers
                     bytesEqualToHeader = 0;
                 }
                 if (chkCurrent == data.Length - 1 && bytesEqualToHeader > 0)
-                    possibleHeader = chkCurrent - bytesEqualToHeader;
+                    possibleHeader = chkCurrent - bytesEqualToHeader + 1;
             }
 
             return possibleHeader;
