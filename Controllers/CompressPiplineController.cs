@@ -11,14 +11,31 @@ namespace GZipTest.Controllers
 {
     internal class CompressPiplineController : PiplineController
     {
-        public override async Task<bool> PerformAction(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// Perform data reading operation from original file
+        /// </summary>
+        internal static FileReader dataReader = new FileReader();
+
+        /// <summary>
+        /// Perform compression pipelines
+        /// </summary>
+        /// <param name="inputFile">Original filename. File to be compressed</param>
+        /// <param name="outputFile">Destination filename</param>
+        /// <param name="compress">The flag defines the operation to be performed (compression if true / decompression if false)</param>
+        /// <param name="cancellationToken">In case of errors or termination by user</param>
+        /// <returns>True on sucess. False on errors</returns>
+        public override async Task<bool> PerformAction(string inputFile, string outputFile, CancellationToken cancellationToken = default(CancellationToken))
         {
             var transform = new TransformBlock<DataChunk, DataChunk>((DataChunk chunk) => {
-                return CompressOrDecompress(chunk, compress);
+                MemoryOwner<byte> buffer;
+                buffer = compressionController.Compress(chunk.uncompressedData);
+                chunk.uncompressedData.Dispose();
+                chunk.compressedData = buffer;
+                return chunk;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
 
             var write = new TransformBlock<DataChunk, DataChunk>(async (DataChunk chunk) => {
-                return await Write(chunk, outputFile, compress);
+                return await Write(chunk, outputFile);
             }, new ExecutionDataflowBlockOptions() { CancellationToken = cancellationToken });
 
             var progressBar = new ActionBlock<DataChunk>((DataChunk chunk) =>
@@ -29,8 +46,6 @@ namespace GZipTest.Controllers
             DataflowLinkOptions linkOption = new DataflowLinkOptions() { PropagateCompletion = true };
             transform.LinkTo(write, linkOption);
             write.LinkTo(progressBar, linkOption);
-
-            dataReader = compress ? new UncompressedFileReader() : new CompressedFileReader();
 
             try
             {
@@ -54,46 +69,19 @@ namespace GZipTest.Controllers
         }
 
         /// <summary>
-        /// Perform compression or decompression
-        /// </summary>
-        /// <param name="chunk">Data chunk to process</param>
-        /// <param name="compress">The flag defines the operation to be performed (compression if true / decompression if false)</param>
-        /// <returns>Processed DataChunk</returns>
-        private DataChunk CompressOrDecompress(DataChunk chunk, bool compress)
-        {
-            MemoryOwner<byte> buffer;
-            if (compress)
-            {
-                buffer = compressionController.Compress(chunk.uncompressedData);
-                chunk.uncompressedData.Dispose();
-                chunk.compressedData = buffer;
-            }
-            else
-            {
-                buffer = compressionController.Decompress(chunk.compressedData);
-                chunk.compressedData.Dispose();
-                chunk.uncompressedData = buffer;
-            }
-
-            return chunk;
-        }
-
-
-        /// <summary>
         /// Writes data chunk to the output file
         /// </summary>
         /// <param name="chunk">Data chunk to write</param>
         /// <param name="outputFile">Destination filename</param>
-        /// <param name="compress"></param>
         /// <returns>Written data chunk without buffers</returns>
-        private async Task<DataChunk> Write(DataChunk chunk, string outputFile, bool compress)
+        private async Task<DataChunk> Write(DataChunk chunk, string outputFile)
         {
             long outputLength = 0;
             try
             {
                 using Stream stream = File.Open(outputFile, FileMode.Append);
                 {
-                    MemoryOwner<byte> memoryOwner = compress ? chunk.compressedData : chunk.uncompressedData;
+                    MemoryOwner<byte> memoryOwner = chunk.compressedData;
                     await stream.WriteAsync(memoryOwner.Memory);
                     outputLength = memoryOwner.Length;
                     memoryOwner.Dispose();

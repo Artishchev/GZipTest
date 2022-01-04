@@ -12,13 +12,26 @@ namespace GZipTest.Controllers
 {
     internal class DecompressPiplineController : PiplineController
     {
-        public override async Task<bool> PerformAction(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken))
+        /// <summary>
+        /// Perform data reading operation from original file
+        /// </summary>
+        internal static CompressedFileReader dataReader = new CompressedFileReader();
+
+        /// <summary>
+        /// Perform decompression pipeline
+        /// </summary>
+        /// <param name="inputFile">Original filename. File to be decompressed depending on <paramref name="compress"/> flag</param>
+        /// <param name="outputFile">Destination filename</param>
+        /// <param name="compress">The flag defines the operation to be performed (compression if true / decompression if false)</param>
+        /// <param name="cancellationToken">In case of errors or termination by user</param>
+        /// <returns>True on sucess. False on errors</returns>
+        public override async Task<bool> PerformAction(string inputFile, string outputFile, CancellationToken cancellationToken = default(CancellationToken))
         {
             ConcurrentBag<long> headers = new ConcurrentBag<long>();
             ConcurrentBag<long> possibleHeaders = new ConcurrentBag<long>();
 
             var findHeaders = new TransformBlock<DataChunk, (long[], long)>((DataChunk chunk) => {
-                var result = CompressedFileReader.FindChunks(chunk);
+                var result = dataReader.FindHeaders(chunk);
                 long[] resultHeaders = null;
                 long resultPossibleHeader = -1;
                 if (result.Item1.Length > 0)
@@ -55,7 +68,7 @@ namespace GZipTest.Controllers
                     }
                 }
 
-                headers.AddRange(await CompressedFileReader.CheckPossibleHeaders(inputFile, possibleHeaders.ToArray()));
+                headers.AddRange(await dataReader.CheckPossibleHeaders(inputFile, possibleHeaders.ToArray()));
                 headers = headers.Distinct().OrderBy(h => h).ToList();
 
                 DataChunk[] result = new DataChunk[headers.Count];
@@ -108,11 +121,9 @@ namespace GZipTest.Controllers
             showProgress.LinkTo(agregateDecompressedChunksBlock, linkOption);
             agregateDecompressedChunksBlock.LinkTo(writeResultFile, linkOption);
 
-            dataReader = new UncompressedFileReader();
-
             try
             {
-                await CompressedFileReader.CheckFileFormatAsync(inputFile, cancellationToken);
+                await dataReader.CheckCompressedFileFormatAsync(inputFile, cancellationToken);
 
                 await foreach (DataChunk dataChunk in dataReader.Read(inputFile).WithCancellation(cancellationToken))
                 {

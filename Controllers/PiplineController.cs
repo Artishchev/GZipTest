@@ -24,19 +24,13 @@ namespace GZipTest.Controllers
         internal static ICompressionController compressionController = new GZipController();
 
         /// <summary>
-        /// Perform data reading operation from original file
-        /// </summary>
-        internal static IDataReader dataReader;
-
-        /// <summary>
         /// Perform compression and decompression pipelines
         /// </summary>
         /// <param name="inputFile">Original filename. File to be compressed or decompressed depending on <paramref name="compress"/> flag</param>
         /// <param name="outputFile">Destination filename</param>
-        /// <param name="compress">The flag defines the operation to be performed (compression if true / decompression if false)</param>
         /// <param name="cancellationToken">In case of errors or termination by user</param>
         /// <returns>True on sucess. False on errors</returns>
-        public abstract Task<bool> PerformAction(string inputFile, string outputFile, bool compress, CancellationToken cancellationToken = default(CancellationToken));
+        public abstract Task<bool> PerformAction(string inputFile, string outputFile, CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
         /// Displays current progress to the console

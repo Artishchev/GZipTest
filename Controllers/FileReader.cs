@@ -9,24 +9,24 @@ namespace GZipTest.Controllers
     /// <summary>
     /// Perform reading operation from decompressed source file
     /// </summary>
-    class UncompressedFileReader : IDataReader
+    class FileReader
     {
         /// <summary>
         /// Default chunk length to pass as async enumerable
         /// </summary>
-        private static readonly int chunkLength = 1024*1024*100;
+        protected static readonly int chunkLength = 1024*1024*100;
 
         /// <summary>
-        /// Reading operation from decompressed source file
+        /// Reading operation from source file. The file is read in chunks.
         /// </summary>
-        /// <param name="uncompressedFilename">Filename of original file to be compressed</param>
-        /// <returns>Chunks of data to be compressed</returns>
-        public async IAsyncEnumerable<DataChunk> Read(string uncompressedFilename)
+        /// <param name="inputFilename">Filename of original file to be processed</param>
+        /// <returns>Chunks of data to be processed</returns>
+        public async IAsyncEnumerable<DataChunk> Read(string inputFilename)
         {
-            long fileLength = new FileInfo(uncompressedFilename).Length;
+            long fileLength = new FileInfo(inputFilename).Length;
             int overallChunksCount = (int)Math.Ceiling((double)fileLength / chunkLength);
             MemoryOwner<byte> buffer;
-            using (Stream stream = File.OpenRead(uncompressedFilename))
+            using (Stream stream = File.OpenRead(inputFilename))
             {
                 int chunksCnt = 0;
                 for (; chunksCnt < fileLength / chunkLength; chunksCnt++)

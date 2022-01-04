@@ -101,7 +101,7 @@ namespace GZipTest
                 else
                     piplineController = new DecompressPiplineController();
 
-                await piplineController.PerformAction(inputFile, outputFile, compress, cts.Token);
+                await piplineController.PerformAction(inputFile, outputFile, cts.Token);
                 exitCode = 0;
             }
             catch (DetailedMessageException dme)
