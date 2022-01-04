@@ -100,9 +100,15 @@ namespace GZipTest.Controllers
                 return dataChunk;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
 
+            var showProgress = new TransformBlock<DataChunk, DataChunk>((DataChunk dataChunk) => {
+                ProgressBar(dataChunk.orderNum + 1, dataChunk.chunksCount + 1);
+                return dataChunk;
+            }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, BoundedCapacity = 1, CancellationToken = cancellationToken });
+
             var agregateDecompressedChunksBlock = new BatchBlock<DataChunk>(int.MaxValue);
 
             var writeResultFile = new ActionBlock<DataChunk[]>(async (DataChunk[] dataChunks) => {
+                dataChunks = dataChunks.OrderBy(dc => dc.orderNum).ToArray();
                 using (FileStream output = File.Open(outputFile, FileMode.Append))
                 {
                     foreach (var chnk in dataChunks)
@@ -114,6 +120,8 @@ namespace GZipTest.Controllers
                         File.Delete(chnk.chunkFileName);
                     }
                 }
+                // Final progress
+                ProgressBar(dataChunks[0].chunksCount + 1, dataChunks[0].chunksCount + 1);
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, BoundedCapacity = 1, CancellationToken = cancellationToken });
 
             DataflowLinkOptions linkOption = new DataflowLinkOptions() { PropagateCompletion = true };
@@ -121,7 +129,8 @@ namespace GZipTest.Controllers
             findHeaders.LinkTo(agregateHeadersBlock, linkOption);
             agregateHeadersBlock.LinkTo(sortHeaders, linkOption);
             sortHeaders.LinkTo(decompressToTemp, linkOption);
-            decompressToTemp.LinkTo(agregateDecompressedChunksBlock, linkOption);
+            decompressToTemp.LinkTo(showProgress, linkOption);
+            showProgress.LinkTo(agregateDecompressedChunksBlock, linkOption);
             agregateDecompressedChunksBlock.LinkTo(writeResultFile, linkOption);
 
             dataReader = new UncompressedFileReader();
