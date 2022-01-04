@@ -16,7 +16,7 @@ namespace GZipTest
         /// <summary>
         /// Instance of main pipeline controller
         /// </summary>
-        static PiplineController piplineController = new PiplineController();
+        static PiplineController piplineController;
 
         /// <summary>
         /// Maximum value of memory used by this process
@@ -95,7 +95,13 @@ namespace GZipTest
                 stopWatch.Start();
 
                 GracefulCancel = true;
-                await piplineController.PerformAction(inputFile, outputFile, compress, cts.Token);
+
+                if (compress)
+                    piplineController = new CompressPiplineController();
+                else
+                    piplineController = new DecompressPiplineController();
+
+                await piplineController.PerformAction(inputFile, outputFile, cts.Token);
                 exitCode = 0;
             }
             catch (DetailedMessageException dme)

@@ -2,7 +2,7 @@
   "profiles": {
     "GZipTest": {
       "commandName": "Project",
-      "commandLineArgs": "compress input.divx output.gz"
+      "commandLineArgs": "compress input.mkv output.gz -- decompress output.gz output.mkv -- compress input.mkv output.gz -- decompress output2.gz output.txt -- compress input.txt output2.gz"
     }
   }
 }
