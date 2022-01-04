@@ -10,6 +10,9 @@ using System.Threading.Tasks.Dataflow;
 
 namespace GZipTest.Controllers
 {
+    /// <summary>
+    /// Implements decompression pipeline
+    /// </summary>
     internal class DecompressPiplineController : PiplineController
     {
         /// <summary>
@@ -27,38 +30,32 @@ namespace GZipTest.Controllers
         /// <returns>True on sucess. False on errors</returns>
         public override async Task<bool> PerformAction(string inputFile, string outputFile, CancellationToken cancellationToken = default(CancellationToken))
         {
-            ConcurrentBag<long> headers = new ConcurrentBag<long>();
-            ConcurrentBag<long> possibleHeaders = new ConcurrentBag<long>();
-
-            var findHeaders = new TransformBlock<DataChunk, (long[], long)>((DataChunk chunk) => {
-                var result = dataReader.FindHeaders(chunk);
-                long[] resultHeaders = null;
+            // searches for headers in file
+            var findHeaders = new TransformBlock<DataChunk, (List<long>, long)>((DataChunk chunk) => {
+                List<long> resultHeaders = new List<long>();
                 long resultPossibleHeader = -1;
-                if (result.Item1.Length > 0)
+                
+                var possibleHeader = dataReader.FindHeaders(chunk, resultHeaders);
+
+                if (possibleHeader >= 0)
                 {
-                    foreach (var headerPos in result.Item1)
-                    {
-                        headers.Add(headerPos);
-                    }
-                    resultHeaders = result.Item1;
-                }
-                if (result.Item2 >= 0)
-                {
-                    possibleHeaders.Add(result.Item2);
-                    resultPossibleHeader = result.Item2;
+                    resultPossibleHeader = possibleHeader;
                 }
                 return (resultHeaders, resultPossibleHeader);
 
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
 
-            var agregateHeadersBlock = new BatchBlock<(long[], long)>(int.MaxValue);
+            // aggregates headers for future processing
+            var agregateHeadersBlock = new BatchBlock<(List<long>, long)>(int.MaxValue);
 
-            var sortHeaders = new TransformManyBlock<IEnumerable<(long[], long)>, DataChunk>(async (IEnumerable<(long[], long)> input) => {
+            // checks headers at the borders of chunks and forms a gzipped data chunks
+            var checkHeaders = new TransformManyBlock<IEnumerable<(List<long>, long)>, DataChunk>(async (IEnumerable<(List<long>, long)> input) => {
                 List<long> headers = new List<long>();
                 List<long> possibleHeaders = new List<long>();
+                DataChunk[] result = null;
                 foreach (var item in input)
                 {
-                    if (item.Item1?.Length > 0)
+                    if (item.Item1?.Count > 0)
                     {
                         headers.AddRange(item.Item1);
                     }
@@ -68,31 +65,38 @@ namespace GZipTest.Controllers
                     }
                 }
 
+                // Checks headers at the border of chunks (possible headers)
                 headers.AddRange(await dataReader.CheckPossibleHeaders(inputFile, possibleHeaders.ToArray()));
                 headers = headers.Distinct().OrderBy(h => h).ToList();
 
-                DataChunk[] result = new DataChunk[headers.Count];
-
-                for (int i = 0; i < headers.Count - 1; i++)
+                if (headers.Count > 0)
                 {
-                    result[i] = new DataChunk() { chunksCount = headers.Count, orderNum = i, offset = (int)headers[i], length = (int)(headers[i + 1] - headers[i]) };
+                    result = new DataChunk[headers.Count];
+
+                    for (int i = 0; i < headers.Count - 1; i++)
+                    {
+                        result[i] = new DataChunk() { chunksCount = headers.Count, orderNum = i, offset = headers[i], length = headers[i + 1] - headers[i] };
+                    }
+                    //Adding last chunk
+                    result[result.Length - 1] = new DataChunk() { chunksCount = headers.Count, orderNum = result.Length - 1, offset = headers[result.Length - 1], length = new FileInfo(inputFile).Length - headers[result.Length - 1] };
                 }
-                //Adding last chunk
-                result[result.Length - 1] = new DataChunk() { chunksCount = headers.Count, orderNum = result.Length - 1, offset = (int)headers[result.Length - 1], length = (int)(new FileInfo(inputFile).Length - headers[result.Length - 1]) };
 
                 return result;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken });
 
+            // decompress gzip chunks to separate files in parallel
             var decompressToTemp = new TransformBlock<DataChunk, DataChunk>(async (DataChunk dataChunk) => {
-                await new GZipController().DecompressToFileAsync(inputFile, outputFile, dataChunk);
+                await new GZipController().DecompressToTempFilesAsync(inputFile, outputFile, dataChunk);
                 return dataChunk;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
 
+            // show progress to user
             var showProgress = new TransformBlock<DataChunk, DataChunk>((DataChunk dataChunk) => {
                 ProgressBar(dataChunk.orderNum + 1, dataChunk.chunksCount + 1);
                 return dataChunk;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1, BoundedCapacity = 1, CancellationToken = cancellationToken });
 
+            // aggreagte chunks to exclude unordered write to output file
             var agregateDecompressedChunksBlock = new BatchBlock<DataChunk>(int.MaxValue);
 
             var writeResultFile = new ActionBlock<DataChunk[]>(async (DataChunk[] dataChunks) => {
@@ -115,8 +119,8 @@ namespace GZipTest.Controllers
             DataflowLinkOptions linkOption = new DataflowLinkOptions() { PropagateCompletion = true };
 
             findHeaders.LinkTo(agregateHeadersBlock, linkOption);
-            agregateHeadersBlock.LinkTo(sortHeaders, linkOption);
-            sortHeaders.LinkTo(decompressToTemp, linkOption);
+            agregateHeadersBlock.LinkTo(checkHeaders, linkOption);
+            checkHeaders.LinkTo(decompressToTemp, linkOption);
             decompressToTemp.LinkTo(showProgress, linkOption);
             showProgress.LinkTo(agregateDecompressedChunksBlock, linkOption);
             agregateDecompressedChunksBlock.LinkTo(writeResultFile, linkOption);

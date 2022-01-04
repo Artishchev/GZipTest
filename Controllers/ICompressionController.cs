@@ -1,4 +1,6 @@
-﻿using Microsoft.Toolkit.HighPerformance.Buffers;
+﻿using GZipTest.Models;
+using Microsoft.Toolkit.HighPerformance.Buffers;
+using System.Threading.Tasks;
 
 namespace GZipTest.Controllers
 {
@@ -15,10 +17,12 @@ namespace GZipTest.Controllers
         MemoryOwner<byte> Compress(MemoryOwner<byte> uncompressedBytes);
 
         /// <summary>
-        /// Decompress data
+        /// Decompress data from source file chunk to the temporary file
         /// </summary>
-        /// <param name="compressedBytes">Input buffer to be decompressed. Should be disposed after usage</param>
-        /// <returns>Decompressed data in buffer. Should be disposed after usage</returns>
-        MemoryOwner<byte> Decompress(MemoryOwner<byte> compressedBytes);
+        /// <param name="inputFile">File to be decompressed</param>
+        /// <param name="outputFile">Destination file</param>
+        /// <param name="dataChunk">Describes the chunk to be decompressed</param>
+        /// <returns>Async task</returns>
+        public Task DecompressToTempFilesAsync(string inputFile, string outputFile, DataChunk dataChunk);
     }
 }

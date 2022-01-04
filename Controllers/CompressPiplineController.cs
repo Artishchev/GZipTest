@@ -9,6 +9,9 @@ using System.Threading.Tasks.Dataflow;
 
 namespace GZipTest.Controllers
 {
+    /// <summary>
+    /// Implements compression pipeline
+    /// </summary>
     internal class CompressPiplineController : PiplineController
     {
         /// <summary>
@@ -26,18 +29,21 @@ namespace GZipTest.Controllers
         /// <returns>True on sucess. False on errors</returns>
         public override async Task<bool> PerformAction(string inputFile, string outputFile, CancellationToken cancellationToken = default(CancellationToken))
         {
+            // compresses data to gzip
             var transform = new TransformBlock<DataChunk, DataChunk>((DataChunk chunk) => {
                 MemoryOwner<byte> buffer;
-                buffer = compressionController.Compress(chunk.uncompressedData);
-                chunk.uncompressedData.Dispose();
-                chunk.compressedData = buffer;
+                buffer = compressionController.Compress(chunk.inputData);
+                chunk.inputData.Dispose();
+                chunk.outputData = buffer;
                 return chunk;
             }, new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = Environment.ProcessorCount, BoundedCapacity = Environment.ProcessorCount, CancellationToken = cancellationToken });
 
+            // writes data to output file
             var write = new TransformBlock<DataChunk, DataChunk>(async (DataChunk chunk) => {
                 return await Write(chunk, outputFile);
             }, new ExecutionDataflowBlockOptions() { CancellationToken = cancellationToken });
 
+            // shows a progress to a user
             var progressBar = new ActionBlock<DataChunk>((DataChunk chunk) =>
             {
                 ProgressBar(chunk.orderNum + 1, chunk.chunksCount);
@@ -54,7 +60,6 @@ namespace GZipTest.Controllers
                     cancellationToken.ThrowIfCancellationRequested();
                     await transform.SendAsync(dataChunk);
                 }
-
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -81,7 +86,7 @@ namespace GZipTest.Controllers
             {
                 using Stream stream = File.Open(outputFile, FileMode.Append);
                 {
-                    MemoryOwner<byte> memoryOwner = chunk.compressedData;
+                    MemoryOwner<byte> memoryOwner = chunk.outputData;
                     await stream.WriteAsync(memoryOwner.Memory);
                     outputLength = memoryOwner.Length;
                     memoryOwner.Dispose();

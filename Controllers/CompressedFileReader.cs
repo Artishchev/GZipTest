@@ -1,12 +1,10 @@
 ﻿using GZipTest.Models;
-using Microsoft.Toolkit.HighPerformance;
-using Microsoft.Toolkit.HighPerformance.Buffers;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace GZipTest.Controllers
 {
@@ -25,6 +23,13 @@ namespace GZipTest.Controllers
         /// </summary>
         private byte[] gZipCurrentHeader;
 
+        /// <summary>
+        /// Check the headers in the beginning of the compressed file
+        /// </summary>
+        /// <param name="compressedFilename">File to be checked</param>
+        /// <param name="cancellationToken">In case of errors or termination by user</param>
+        /// <returns>Async task</returns>
+        /// <exception cref="DetailedMessageException">Throws with internal FormatException when header not found</exception>
         public async Task CheckCompressedFileFormatAsync(string compressedFilename, CancellationToken cancellationToken = default(CancellationToken))
         {
             byte[] buffer = new byte[10];
@@ -42,21 +47,26 @@ namespace GZipTest.Controllers
                 throw new DetailedMessageException("Input file is not a GZip formatted archive.", new FormatException("Unsupported file format"));
         }
 
-        public (long[],long) FindHeaders(DataChunk chunk)
+        /// <summary>
+        /// Search for gzip headers in the file
+        /// </summary>
+        /// <param name="chunk">File chunk to be checked</param>
+        /// <param name="resultHeaders">Found gzip headers</param>
+        /// <returns>possible header at the end of chunk</returns>
+        public long FindHeaders(DataChunk chunk, List<long> resultHeaders)
         {
-            List<long> chunkHeaderPositions = new List<long>();
             long possibleChunkheaderPositions = -1;
             IEnumerable<byte> byteFlags = gZipCurrentHeader.Distinct().ToArray();
 
             int currentPosition = 0;
-            Span<byte> data = chunk.uncompressedData.Span;
+            Span<byte> data = chunk.inputData.Span;
 
             while (currentPosition < data.Length)
             {
                 if (byteFlags.Contains(data[currentPosition]))
                 {
                     // check for header
-                    FindHeader(data, currentPosition, chunk.offset, chunkHeaderPositions);
+                    FindHeader(data, currentPosition, chunk.offset, resultHeaders);
                 }
                 currentPosition += gZipCurrentHeader.Length;
             }
@@ -67,21 +77,30 @@ namespace GZipTest.Controllers
             if (byteFlags.Contains(data[currentPosition]))
             {
                 // check for header
-                long possibleHeader = FindHeader(data, currentPosition, chunk.offset, chunkHeaderPositions);
+                long possibleHeader = FindHeader(data, currentPosition, chunk.offset, resultHeaders);
                 if (possibleHeader >= 0)
                     possibleChunkheaderPositions = possibleHeader + chunk.offset;
             }
 
-            return (chunkHeaderPositions.ToArray(), possibleChunkheaderPositions);
+            chunk.inputData.Dispose();
+
+            return possibleChunkheaderPositions;
         }
 
+        /// <summary>
+        /// Checks a bytes at the border of the read chunks where could be a real headers
+        /// </summary>
+        /// <param name="compressedFilename">File to be checked</param>
+        /// <param name="possibleHeaders">Array with possible headers starting positions</param>
+        /// <param name="cancellationToken">In case of errors or termination by user</param>
+        /// <returns>Confirmed headers</returns>
         public async Task<long[]> CheckPossibleHeaders(string compressedFilename, long[] possibleHeaders, CancellationToken cancellationToken = default(CancellationToken))
         {
             List<long> chunkHeaderPositions = new List<long>();
             Array.Sort(possibleHeaders);
             using (Stream stream = File.OpenRead(compressedFilename))
             {
-                foreach (long headerOffset in possibleHeaders)
+                foreach (long headerOffset in possibleHeaders.Distinct())
                 {
                     if (headerOffset < stream.Length - gZipCurrentHeader.Length)
                     {
@@ -98,6 +117,14 @@ namespace GZipTest.Controllers
             return chunkHeaderPositions.ToArray();
         }
 
+        /// <summary>
+        /// Searches for headers in data chunk at the current position
+        /// </summary>
+        /// <param name="data">Compressed data chunk</param>
+        /// <param name="currentPosition">A place where there might be headlines nearby</param>
+        /// <param name="chunkOffset">Offset of the compressed data chunk. Used to address headers from the beginning of the file</param>
+        /// <param name="chunkHeaderPositions">Found headers</param>
+        /// <returns>Possible header position at the end of chunk</returns>
         private long FindHeader(Span<byte> data, int currentPosition, long chunkOffset, List<long> chunkHeaderPositions)
         {
             long possibleHeader = -1;

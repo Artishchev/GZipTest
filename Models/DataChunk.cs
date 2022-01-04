@@ -9,14 +9,14 @@ namespace GZipTest.Models
     public class DataChunk : IDisposable
     {
         /// <summary>
-        /// Uncompressed data to be compressed or to be written to output file after decompression
+        /// Input data to be processed
         /// </summary>
-        public MemoryOwner<byte> uncompressedData { get; set; }
+        public MemoryOwner<byte> inputData { get; set; }
         
         /// <summary>
-        /// Compressed data to be uncompressed or to be written to output file after compression
+        /// Output data to be written in to output file
         /// </summary>
-        public MemoryOwner<byte> compressedData { get; set; }
+        public MemoryOwner<byte> outputData { get; set; }
 
         /// <summary>
         /// Sequential chunk number
@@ -28,10 +28,19 @@ namespace GZipTest.Models
         /// </summary>
         public int chunksCount { get; set; }
 
-        public int offset { get; set; }
+        /// <summary>
+        /// Offset of the chunk in the file
+        /// </summary>
+        public long offset { get; set; }
 
-        public int length { get; set; }
+        /// <summary>
+        /// Length of the chunk
+        /// </summary>
+        public long length { get; set; }
 
+        /// <summary>
+        /// Temporary file name
+        /// </summary>
         public string chunkFileName { get; set; }
 
         /// <summary>
@@ -39,8 +48,8 @@ namespace GZipTest.Models
         /// </summary>
         public void Dispose()
         {
-            uncompressedData?.Dispose();
-            compressedData?.Dispose();
+            inputData?.Dispose();
+            outputData?.Dispose();
         }
     }
 }

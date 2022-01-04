@@ -33,13 +33,13 @@ namespace GZipTest.Controllers
                 {
                     buffer = MemoryOwner<byte>.Allocate(chunkLength);
                     await stream.ReadAsync(buffer.Memory);
-                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt*chunkLength, length = buffer.Length };
+                    yield return new DataChunk() { inputData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt*chunkLength, length = buffer.Length };
                 }
                 if (stream.Length - stream.Position > 0)
                 {
                     buffer = MemoryOwner<byte>.Allocate((int)(stream.Length - stream.Position));
                     await stream.ReadAsync(buffer.Memory);
-                    yield return new DataChunk() { uncompressedData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt * chunkLength, length = buffer.Length };
+                    yield return new DataChunk() { inputData = buffer, orderNum = chunksCnt, chunksCount = overallChunksCount, offset = chunksCnt * chunkLength, length = buffer.Length };
                 }
             }
         }
